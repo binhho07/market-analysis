@@ -1,6 +1,6 @@
 # SpaAtlas
 
-Competitor analysis for nail salons and spas. Search an address, find nearby shops, and compare ratings, prices, and market position.
+Competitor analysis for local businesses. Search an address, find nearby shops, and compare ratings, prices, and market position.
 
 ## Features
 
