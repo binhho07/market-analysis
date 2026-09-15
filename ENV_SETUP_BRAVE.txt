@@ -1,0 +1,32 @@
+# 🔑 Brave Search API Key Setup
+
+## Add this to your .env file:
+
+```env
+# Brave Search API (for website discovery)
+BRAVE_SEARCH_API_KEY="BSAtrTa-8rfXkMYkt91fmMyrF4AYMLZ"
+```
+
+## For Vercel Production:
+
+1. Go to: https://vercel.com/dashboard
+2. Select your project
+3. Settings → Environment Variables
+4. Add:
+   - Key: `BRAVE_SEARCH_API_KEY`
+   - Value: `BSAtrTa-8rfXkMYkt91fmMyrF4AYMLZ`
+   - Environments: ✅ Production, ✅ Preview, ✅ Development
+5. Save → Redeploy
+
+## Test Locally:
+
+```bash
+# Add to .env manually, then:
+npm run dev
+
+# Test validation:
+node scripts/test-brave-discovery.js
+```
+
+✅ API Key is already configured and ready to use!
+

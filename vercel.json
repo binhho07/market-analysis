@@ -1,0 +1,19 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "functions": {
+    "app/api/competitors/search/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/crawler/**": {
+      "maxDuration": 300
+    },
+    "app/api/maps/**": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "PRISMA_GENERATE_SKIP_AUTOINSTALL": "true"
+  },
+  "regions": ["iad1"]
+}
+
