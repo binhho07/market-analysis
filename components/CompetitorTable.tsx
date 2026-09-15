@@ -1,38 +1,26 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Competitor } from "@/lib/mockData";
-import { Star, ExternalLink, MapPin, TrendingUp } from "lucide-react";
+import { Star, ExternalLink, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
+import { competitiveScore, scoreBadgeClass, scoreLabel } from "@/lib/js/competitorScore.js";
+import { getWatchlist, toggleWatchlist } from "@/lib/js/watchlist.js";
 
 interface CompetitorTableProps {
   competitors: Competitor[];
 }
 
 export function CompetitorTable({ competitors }: CompetitorTableProps) {
-  // Calculate competitive score for each competitor
-  const calculateCompetitiveScore = (competitor: Competitor): number => {
-    // Formula: (Rating × log(Reviews + 1)) / Distance × 10
-    // Higher score = bigger threat
-    const reviewWeight = Math.log(competitor.reviewCount + 1);
-    const score = (competitor.rating * reviewWeight) / (competitor.distanceMiles || 1);
-    return Math.min(Math.round(score * 10), 100); // Cap at 100
-  };
+  const [watchedIds, setWatchedIds] = useState<string[]>([]);
 
-  const getScoreBadgeColor = (score: number): string => {
-    if (score >= 70) return "bg-red-500 text-white hover:bg-red-600";
-    if (score >= 40) return "bg-yellow-500 text-white hover:bg-yellow-600";
-    return "bg-green-500 text-white hover:bg-green-600";
-  };
-
-  const getScoreLabel = (score: number): string => {
-    if (score >= 70) return "High Threat";
-    if (score >= 40) return "Medium";
-    return "Low Threat";
-  };
+  useEffect(() => {
+    setWatchedIds(getWatchlist().map((item: { id: string }) => item.id));
+  }, []);
 
   return (
     <motion.div
@@ -49,6 +37,7 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
             <Table>
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
+                  <TableHead className="font-bold">Watch</TableHead>
                   <TableHead className="font-bold">Name</TableHead>
                   <TableHead className="font-bold">Threat Level</TableHead>
                   <TableHead className="font-bold">Rating</TableHead>
@@ -66,16 +55,30 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
               </TableHeader>
               <TableBody>
                 {competitors.map((competitor) => {
-                  const competitiveScore = calculateCompetitiveScore(competitor);
-                  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(competitor.name + ' ' + competitor.address)}`;
+                  const threatScore = competitiveScore(competitor);
+                  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(competitor.name + ' ' + (competitor.address || ''))}`;
                   const hasValidWebsite = competitor.website && competitor.website !== "#" && competitor.website !== "";
-                  const websiteUrl = hasValidWebsite ? competitor.website : `https://www.google.com/search?q=${encodeURIComponent(competitor.name + ' ' + competitor.address)}`;
+                  const websiteUrl = hasValidWebsite ? competitor.website : `https://www.google.com/search?q=${encodeURIComponent(competitor.name + ' ' + (competitor.address || ''))}`;
+                  const watched = watchedIds.includes(competitor.id);
                   
                   return (
                     <TableRow
                       key={competitor.id}
                       className="hover:bg-muted/50 transition-colors"
                     >
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={watched ? "Remove from watchlist" : "Add to watchlist"}
+                          onClick={() => {
+                            const next = toggleWatchlist(competitor);
+                            setWatchedIds(next.map((item: { id: string }) => item.id));
+                          }}
+                        >
+                          <Star className={`h-4 w-4 ${watched ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+                        </Button>
+                      </TableCell>
                       <TableCell className="font-medium">
                         <a
                           href={websiteUrl}
@@ -90,11 +93,11 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <Badge className={`${getScoreBadgeColor(competitiveScore)} font-bold`}>
-                            {competitiveScore}
+                          <Badge className={`${scoreBadgeClass(threatScore)} font-bold`}>
+                            {threatScore}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {getScoreLabel(competitiveScore)}
+                            {scoreLabel(threatScore)}
                           </span>
                         </div>
                       </TableCell>

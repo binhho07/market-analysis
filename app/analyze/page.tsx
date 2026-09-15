@@ -11,6 +11,7 @@ import { MapView } from "@/components/MapView";
 import { HeatMapView } from "@/components/HeatMapView";
 import { HistoricalTrackingDashboard } from "@/components/HistoricalTrackingDashboard";
 import { ExportButtons } from "@/components/ExportButtons";
+import { MarketSnapshot } from "@/components/MarketSnapshot";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -207,6 +208,8 @@ export default function AnalyzePage() {
             <div className="flex justify-end">
               <ExportButtons onExport={handleExport} />
             </div>
+
+            <MarketSnapshot competitors={competitors} address={searchData?.address} />
 
             {/* Competitor Table */}
             <CompetitorTable competitors={competitors} />

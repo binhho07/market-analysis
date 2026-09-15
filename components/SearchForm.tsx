@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Loader2 } from "lucide-react";
 import { searchFormSchema, type SearchFormData } from "@/lib/validations";
+import { getRecentSearches, saveRecentSearch } from "@/lib/js/recentSearches.js";
 import { toast } from "sonner";
 
 interface SearchFormProps {
@@ -18,6 +19,13 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
   const [radius, setRadius] = useState(5);
   const [competitorCount, setCompetitorCount] = useState(10); // Default to 10 competitors
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [recentSearches, setRecentSearches] = useState<
+    Array<{ address: string; radius: number; competitorCount: number }>
+  >([]);
+
+  useEffect(() => {
+    setRecentSearches(getRecentSearches());
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,9 +51,19 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
       return;
     }
 
-    // Success
+    setRecentSearches(saveRecentSearch(result.data));
     toast.success("Analyzing competitors...");
     onAnalyze(result.data);
+  };
+
+  const applyRecentSearch = (item: {
+    address: string;
+    radius: number;
+    competitorCount: number;
+  }) => {
+    setAddress(item.address);
+    setRadius(item.radius);
+    setCompetitorCount(item.competitorCount);
   };
 
   return (
@@ -78,6 +96,21 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
               <p id="address-error" className="text-sm text-red-500" role="alert">
                 {errors.address}
               </p>
+            )}
+            {recentSearches.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {recentSearches.map((item) => (
+                  <button
+                    key={item.address}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => applyRecentSearch(item)}
+                    className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-700 hover:border-black hover:bg-white"
+                  >
+                    {item.address}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 

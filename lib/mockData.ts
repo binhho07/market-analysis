@@ -2,6 +2,7 @@ export interface Competitor {
   id: string;
   name: string;
   website: string;
+  address?: string;
   rating: number;
   reviewCount: number;
   priceRange: string;

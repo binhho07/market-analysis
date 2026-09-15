@@ -1,4 +1,4 @@
-# SpaAtlas
+# SPAtlas
 
 Competitor analysis for local businesses. Search an address, find nearby shops, and compare ratings, prices, and market position.
 
@@ -9,6 +9,7 @@ Competitor analysis for local businesses. Search an address, find nearby shops, 
 - Price comparison for gel, pedicure, and acrylic
 - Charts, AI-style insights, and search history
 - CSV / PDF export
+- JavaScript helpers for recent searches, watchlist, and a market snapshot briefing
 - Optional accounts (email or Google)
 - Background crawler dashboard at `/crawler`
 
