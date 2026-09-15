@@ -1,0 +1,72 @@
+# SpaAtlas
+
+Competitor analysis for nail salons and spas. Search an address, find nearby shops, and compare ratings, prices, and market position.
+
+## Features
+
+- Search competitors by address and radius
+- Google Maps view plus heat map
+- Price comparison for gel, pedicure, and acrylic
+- Charts, AI-style insights, and search history
+- CSV / PDF export
+- Optional accounts (email or Google)
+- Background crawler dashboard at `/crawler`
+
+## Setup
+
+You need Node.js 18+ and a PostgreSQL database.
+
+```bash
+git clone https://github.com/binhho07/market-analysis.git
+cd market-analysis
+cp .env.example .env
+```
+
+Fill in `.env`, then:
+
+```bash
+npm install
+npx prisma db push
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `GOOGLE_MAPS_API_KEY` | Server-side Maps / Places / Geocoding |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Browser maps |
+| `JWT_SECRET` | Email/password auth |
+| `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | NextAuth |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in (optional) |
+| `BRAVE_SEARCH_API_KEY` | Find salon websites when Google has none |
+| `REDIS_URL` | Optional cache and rate limiting |
+
+Enable **Maps JavaScript API**, **Places API**, and **Geocoding API** on the Google Cloud key.
+
+## Scripts
+
+```bash
+npm run dev          # local server
+npm run build        # production build
+npm run start        # serve the production build
+npm run db:push      # sync Prisma schema to the database
+npm run db:studio    # open Prisma Studio
+```
+
+## App routes
+
+| Path | What it does |
+| --- | --- |
+| `/` | Landing page |
+| `/analyze` | Run a competitor search |
+| `/crawler` | Crawler dashboard |
+| `/auth/signin` | Sign in |
+| `/auth/signup` | Create an account |
+
+## Stack
+
+Next.js 15, TypeScript, Tailwind CSS 4, Prisma, PostgreSQL, Google Maps, Cheerio.

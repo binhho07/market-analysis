@@ -1,0 +1,289 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String          @id @default(uuid())
+  email            String          @unique
+  passwordHash     String          @map("password_hash")
+  salonName        String?         @map("salon_name")
+  salonAddress     String?         @map("salon_address")
+  subscriptionTier String          @default("free") @map("subscription_tier") // free, pro, enterprise
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  
+  savedSearches    SavedSearch[]
+  apiUsage         ApiUsage[]
+  
+  @@map("users")
+}
+
+model Competitor {
+  id                    String    @id @default(uuid())
+  placeId               String?   @unique @map("place_id") // Google Place ID
+  name                  String
+  address               String
+  latitude              Decimal?  @db.Decimal(10, 8)
+  longitude             Decimal?  @db.Decimal(11, 8)
+  phone                 String?
+  email                 String?
+  website               String?
+  
+  // Google data
+  googleRating          Decimal?  @map("google_rating") @db.Decimal(3, 2)
+  googleReviewCount     Int?      @map("google_review_count")
+  
+  // Facebook data
+  facebookRating        Decimal?  @map("facebook_rating") @db.Decimal(3, 2)
+  facebookReviewCount   Int?      @map("facebook_review_count")
+  facebookUrl           String?   @map("facebook_url")
+  
+  // Yelp data
+  yelpRating            Decimal?  @map("yelp_rating") @db.Decimal(3, 2)
+  yelpReviewCount       Int?      @map("yelp_review_count")
+  yelpUrl               String?   @map("yelp_url")
+  
+  // Instagram
+  instagramUrl          String?   @map("instagram_url")
+  
+  // SEO data
+  seoTitle              String?   @map("seo_title")
+  seoDescription        String?   @map("seo_description")
+  h1Tag                 String?   @map("h1_tag")
+  statusCode            Int?      @map("status_code")
+  pageLoadTime          Int?      @map("page_load_time") // in milliseconds
+  
+  // Crawl metadata
+  lastCrawled           DateTime? @map("last_crawled")
+  crawlStatus           String?   @map("crawl_status") // success, partial, failed
+  crawlErrors           String[]  @map("crawl_errors") @default([])
+  screenshotPath        String?   @map("screenshot_path")
+  
+  // Legacy fields (keep for backward compatibility)
+  rating                Decimal?  @db.Decimal(3, 2)
+  reviewCount           Int?      @map("review_count")
+  priceLevel            Int?      @map("price_level") // 1-4 ($-$$$$)
+  hoursPerWeek          Int?      @map("hours_per_week")
+  staffBand             String?   @map("staff_band") // "1-3", "4-7", "8+"
+  
+  lastUpdated           DateTime  @default(now()) @map("last_updated")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  
+  services              Service[]
+  amenities             Amenity[]
+  crawlHistory          CrawlHistory[]
+  openingHours          OpeningHours[]
+  
+  @@map("competitors")
+}
+
+model Service {
+  id              String    @id @default(uuid())
+  competitorId    String    @map("competitor_id")
+  name            String    // Service name (e.g., "Gel Manicure")
+  serviceType     String    @map("service_type") // gel, pedicure, acrylic, etc.
+  price           Decimal   @db.Decimal(8, 2)
+  priceMin        Decimal?  @map("price_min") @db.Decimal(8, 2) // For price ranges
+  priceMax        Decimal?  @map("price_max") @db.Decimal(8, 2) // For price ranges
+  durationMinutes Int?      @map("duration_minutes")
+  confidence      Decimal?  @db.Decimal(3, 2) // 0-1 confidence score for scraped data
+  source          String    @default("manual") // scraped, manual, estimated
+  verified        Boolean   @default(false)
+  lastUpdated     DateTime  @default(now()) @map("last_updated")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  
+  competitor      Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  
+  @@map("services")
+}
+
+model Amenity {
+  id           String     @id @default(uuid())
+  competitorId String     @map("competitor_id")
+  amenityName  String     @map("amenity_name")
+  verified     Boolean    @default(false)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  
+  @@map("amenities")
+}
+
+model SavedSearch {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  searchAddress   String   @map("search_address")
+  radiusMiles     Decimal  @map("radius_miles") @db.Decimal(5, 2)
+  competitorCount Int      @map("competitor_count")
+  results         Json?    // Store search results as JSON
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("saved_searches")
+}
+
+model ApiUsage {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  endpoint     String
+  requestCount Int      @default(1) @map("request_count")
+  date         DateTime @default(now()) @db.Date
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, endpoint, date])
+  @@map("api_usage")
+}
+
+model CrawlHistory {
+  id              String     @id @default(uuid())
+  competitorId    String     @map("competitor_id")
+  crawlTimestamp  DateTime   @map("crawl_timestamp")
+  status          String     // success, partial, failed
+  errors          String[]   @default([])
+  screenshotPath  String?    @map("screenshot_path")
+  sourceUrl       String?    @map("source_url")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  
+  competitor      Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  
+  @@map("crawl_history")
+}
+
+model OpeningHours {
+  id              String     @id @default(uuid())
+  competitorId    String     @map("competitor_id")
+  dayOfWeek       String     @map("day_of_week") // monday, tuesday, etc.
+  hours           String     // e.g., "9:00 AM - 7:00 PM"
+  lastUpdated     DateTime   @default(now()) @map("last_updated")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  
+  competitor      Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  
+  @@unique([competitorId, dayOfWeek])
+  @@map("opening_hours")
+}
+
+model CrawlLog {
+  id                    String   @id @default(uuid())
+  crawlType             String   @map("crawl_type") // daily, weekly, hourly
+  startTime             DateTime @map("start_time")
+  endTime               DateTime @map("end_time")
+  status                String   // completed, failed, running
+  competitorsFound      Int      @map("competitors_found")
+  competitorsProcessed  Int      @map("competitors_processed")
+  errorsCount           Int      @map("errors_count")
+  notes                 String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  
+  @@map("crawl_logs")
+}
+
+model CachedPlace {
+  id              String    @id @default(uuid())
+  placeId         String    @unique @map("place_id") // Google Place ID
+  name            String
+  website         String?
+  address         String
+  phoneNumber     String?   @map("phone_number")
+  rating          Decimal?  @db.Decimal(3, 2)
+  userRatingsTotal Int?     @map("user_ratings_total")
+  priceLevel      Int?      @map("price_level")
+  latitude        Decimal   @db.Decimal(10, 8)
+  longitude       Decimal   @db.Decimal(11, 8)
+  businessStatus  String?   @map("business_status")
+  types           String[]  @default([])
+  
+  // Cache metadata
+  cachedAt        DateTime  @default(now()) @map("cached_at")
+  expiresAt       DateTime  @map("expires_at")
+  lastAccessed    DateTime  @default(now()) @map("last_accessed")
+  accessCount     Int       @default(1) @map("access_count")
+  
+  @@index([expiresAt])
+  @@index([placeId])
+  @@map("cached_places")
+}
+
+// Historical Tracking Models
+model SearchHistory {
+  id                String              @id @default(uuid())
+  searchAddress     String              @map("search_address")
+  latitude          Decimal             @db.Decimal(10, 8)
+  longitude         Decimal             @db.Decimal(11, 8)
+  radiusMiles       Decimal             @map("radius_miles") @db.Decimal(5, 2)
+  competitorCount   Int                 @map("competitor_count")
+  searchDate        DateTime            @default(now()) @map("search_date")
+  
+  // Aggregated metrics
+  avgRating         Decimal?            @map("avg_rating") @db.Decimal(3, 2)
+  avgGelPrice       Decimal?            @map("avg_gel_price") @db.Decimal(8, 2)
+  avgPedicurePrice  Decimal?            @map("avg_pedicure_price") @db.Decimal(8, 2)
+  avgAcrylicPrice   Decimal?            @map("avg_acrylic_price") @db.Decimal(8, 2)
+  
+  snapshots         CompetitorSnapshot[]
+  
+  @@index([searchAddress, searchDate])
+  @@index([latitude, longitude, searchDate])
+  @@map("search_history")
+}
+
+model CompetitorSnapshot {
+  id                String        @id @default(uuid())
+  searchHistoryId   String        @map("search_history_id")
+  placeId           String        @map("place_id")
+  name              String
+  address           String
+  rating            Decimal?      @db.Decimal(3, 2)
+  reviewCount       Int?          @map("review_count")
+  priceRange        String?       @map("price_range")
+  gelPrice          Decimal?      @map("gel_price") @db.Decimal(8, 2)
+  pedicurePrice     Decimal?      @map("pedicure_price") @db.Decimal(8, 2)
+  acrylicPrice      Decimal?      @map("acrylic_price") @db.Decimal(8, 2)
+  distanceMiles     Decimal?      @map("distance_miles") @db.Decimal(10, 2)
+  competitiveScore  Int?          @map("competitive_score")
+  snapshotDate      DateTime      @default(now()) @map("snapshot_date")
+  
+  searchHistory     SearchHistory @relation(fields: [searchHistoryId], references: [id], onDelete: Cascade)
+  
+  @@index([placeId, snapshotDate])
+  @@index([searchHistoryId])
+  @@map("competitor_snapshots")
+}
+
+// Reviews & Sentiment Analysis
+model Review {
+  id              String    @id @default(uuid())
+  placeId         String    @map("place_id")
+  competitorName  String    @map("competitor_name")
+  authorName      String    @map("author_name")
+  rating          Int       // 1-5 stars
+  text            String?   @db.Text
+  publishedAt     DateTime? @map("published_at")
+  
+  // Sentiment Analysis
+  sentiment       String?   // positive, negative, neutral
+  sentimentScore  Decimal?  @map("sentiment_score") @db.Decimal(3, 2) // -1 to 1
+  keywords        String[]  @default([])
+  topics          String[]  @default([]) // service, cleanliness, price, staff, etc.
+  
+  // Metadata
+  source          String    @default("google") // google, yelp, facebook
+  analyzedAt      DateTime? @map("analyzed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  
+  @@index([placeId])
+  @@index([sentiment])
+  @@index([publishedAt])
+  @@map("reviews")
+}
