@@ -37,15 +37,20 @@ export default function AnalyzePage() {
     setSearchData(data);
 
     try {
-      // First geocode the address
-      toast.info("🗺️ Finding location...");
-      const geocodeResult = await apiClient.geocodeAddress(data.address);
-      
-      if (!geocodeResult.success || !geocodeResult.data) {
-        throw new Error(geocodeResult.error?.message || "Failed to geocode address");
-      }
+      let lat = data.lat;
+      let lng = data.lng;
 
-      const { lat, lng } = geocodeResult.data;
+      if (typeof lat !== "number" || typeof lng !== "number") {
+        toast.info("Finding location...");
+        const geocodeResult = await apiClient.geocodeAddress(data.address);
+
+        if (!geocodeResult.success || !geocodeResult.data) {
+          throw new Error(geocodeResult.error?.message || "Failed to geocode address");
+        }
+
+        lat = geocodeResult.data.lat;
+        lng = geocodeResult.data.lng;
+      }
 
       // Then search for competitors
       toast.info("🔍 Finding competitors...");

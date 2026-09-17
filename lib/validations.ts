@@ -13,7 +13,9 @@ export const searchFormSchema = z.object({
   competitorCount: z
     .number()
     .min(1, "Must analyze at least 1 competitor")
-    .max(20, "Cannot analyze more than 20 competitors"),
+    .max(50, "Cannot analyze more than 50 competitors"),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
 });
 
 export type SearchFormData = z.infer<typeof searchFormSchema>;

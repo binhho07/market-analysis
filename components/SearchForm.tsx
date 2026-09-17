@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Loader2 } from "lucide-react";
 import { searchFormSchema, type SearchFormData } from "@/lib/validations";
-import { getRecentSearches, saveRecentSearch } from "@/lib/js/recentSearches.js";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { saveRecentSearch } from "@/lib/js/recentSearches.js";
 import { toast } from "sonner";
 
 interface SearchFormProps {
@@ -17,29 +18,23 @@ interface SearchFormProps {
 export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
   const [address, setAddress] = useState("");
   const [radius, setRadius] = useState(5);
-  const [competitorCount, setCompetitorCount] = useState(10); // Default to 10 competitors
+  const [competitorCount, setCompetitorCount] = useState(10);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [recentSearches, setRecentSearches] = useState<
-    Array<{ address: string; radius: number; competitorCount: number }>
-  >([]);
-
-  useEffect(() => {
-    setRecentSearches(getRecentSearches());
-  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    // Validate with Zod
     const result = searchFormSchema.safeParse({
       address,
       radius,
       competitorCount,
+      lat: selectedLocation?.lat,
+      lng: selectedLocation?.lng,
     });
 
     if (!result.success) {
-      // Extract errors
       const newErrors: Record<string, string> = {};
       result.error.issues.forEach((err) => {
         if (err.path[0]) {
@@ -51,67 +46,45 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
       return;
     }
 
-    setRecentSearches(saveRecentSearch(result.data));
+    saveRecentSearch(result.data);
     toast.success("Analyzing competitors...");
     onAnalyze(result.data);
   };
 
-  const applyRecentSearch = (item: {
-    address: string;
-    radius: number;
-    competitorCount: number;
-  }) => {
-    setAddress(item.address);
-    setRadius(item.radius);
-    setCompetitorCount(item.competitorCount);
-  };
-
   return (
-    <Card className="w-full rounded-xl shadow-lg border border-gray-200 bg-white">
+    <Card className="w-full rounded-xl shadow-lg border border-gray-200 bg-white overflow-visible">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-black">Search Competitors</CardTitle>
         <CardDescription className="text-gray-600">
           Enter your salon location to find and analyze nearby competitors
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="overflow-visible">
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-visible">
           <div className="space-y-2">
             <label htmlFor="address" className="text-sm font-medium">
               Salon Address or Name <span className="text-red-500">*</span>
             </label>
-            <Input
+            <AddressAutocomplete
               id="address"
-              type="text"
-              placeholder="e.g. 123 Main St, Los Angeles, CA"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className={`w-full ${errors.address ? "border-red-500" : ""}`}
               disabled={isLoading}
-              aria-label="Salon address or name"
-              aria-invalid={!!errors.address}
-              aria-describedby={errors.address ? "address-error" : undefined}
+              error={errors.address}
+              placeholder="Start typing a salon name or address"
+              onChange={(next) => {
+                setAddress(next);
+                setSelectedLocation(null);
+                if (errors.address) {
+                  setErrors((current) => ({ ...current, address: "" }));
+                }
+              }}
+              onSelect={(next, lat, lng) => {
+                setAddress(next);
+                setSelectedLocation(
+                  typeof lat === "number" && typeof lng === "number" ? { lat, lng } : null
+                );
+              }}
             />
-            {errors.address && (
-              <p id="address-error" className="text-sm text-red-500" role="alert">
-                {errors.address}
-              </p>
-            )}
-            {recentSearches.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {recentSearches.map((item) => (
-                  <button
-                    key={item.address}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => applyRecentSearch(item)}
-                    className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-700 hover:border-black hover:bg-white"
-                  >
-                    {item.address}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -125,7 +98,10 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
                 min="1"
                 max="50"
                 value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setRadius(Number.isFinite(next) ? next : 0);
+                }}
                 className={errors.radius ? "border-red-500" : ""}
                 disabled={isLoading}
                 aria-label="Search radius in miles"
@@ -149,7 +125,10 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
                 min="1"
                 max="50"
                 value={competitorCount}
-                onChange={(e) => setCompetitorCount(Number(e.target.value))}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setCompetitorCount(Number.isFinite(next) ? next : 0);
+                }}
                 className={errors.competitorCount ? "border-red-500" : ""}
                 disabled={isLoading}
                 aria-label="Number of competitors to analyze"
@@ -164,9 +143,9 @@ export function SearchForm({ onAnalyze, isLoading = false }: SearchFormProps) {
             </div>
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full md:w-auto bg-black hover:bg-gray-800 text-white" 
+          <Button
+            type="submit"
+            className="w-full md:w-auto bg-black hover:bg-gray-800 text-white"
             size="lg"
             disabled={isLoading}
             aria-label="Analyze competitors"

@@ -80,9 +80,11 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
       country,
       postalCode,
     };
-  } catch (error) {
-    console.error("Geocoding error:", error);
-    throw new Error("Failed to geocode address");
+  } catch (error: any) {
+    const googleMessage =
+      error?.response?.data?.error_message || error?.response?.data?.status;
+    console.error("Geocoding error:", googleMessage || error);
+    throw new Error(googleMessage || "Failed to geocode address");
   }
 }
 
