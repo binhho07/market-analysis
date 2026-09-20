@@ -1,6 +1,6 @@
 "use client";
 
-import { GoogleMapView } from "@/components/GoogleMapView";
+import { OsmMapView } from "@/components/OsmMapView";
 
 interface MapViewProps {
   competitors: Array<{
@@ -14,12 +14,5 @@ interface MapViewProps {
 }
 
 export function MapView({ competitors, center }: MapViewProps) {
-  return (
-    <GoogleMapView
-      center={center}
-      competitors={competitors}
-      yourLocation={center}
-    />
-  );
+  return <OsmMapView center={center} competitors={competitors} />;
 }
-

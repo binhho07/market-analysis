@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Loader2, MapPin } from "lucide-react";
-import { loadGoogleMapsScript } from "@/lib/google-maps-loader";
 import { getRecentSearches } from "@/lib/js/recentSearches.js";
 
 export interface AddressSuggestion {
   id: string;
   label: string;
   description: string;
-  placeId?: string;
-  source: "google" | "recent";
+  lat?: number;
+  lng?: number;
+  source: "osm" | "recent";
 }
 
 interface AddressAutocompleteProps {
@@ -37,39 +37,8 @@ export function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
-  const [mapsReady, setMapsReady] = useState(false);
-
   const rootRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef(0);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-  const attributionRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const init = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) return;
-
-      try {
-        await loadGoogleMapsScript(apiKey);
-        if (cancelled || !window.google?.maps?.places) return;
-        autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-        if (attributionRef.current) {
-          placesServiceRef.current = new google.maps.places.PlacesService(attributionRef.current);
-        }
-        setMapsReady(true);
-      } catch (err) {
-        console.error("Address autocomplete failed to load:", err);
-      }
-    };
-
-    init();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const recentSuggestions = useCallback((query: string): AddressSuggestion[] => {
     const needle = query.trim().toLowerCase();
@@ -97,54 +66,43 @@ export function AddressAutocomplete({
       return;
     }
 
-    if (!mapsReady || !autocompleteServiceRef.current) {
-      setSuggestions(recents);
-      return;
-    }
-
     const requestId = ++requestIdRef.current;
     setLoading(true);
-    const timer = window.setTimeout(() => {
-      autocompleteServiceRef.current?.getPlacePredictions(
-        {
-          input: query,
-          componentRestrictions: { country: "us" },
-        },
-        (predictions, status) => {
-          if (requestId !== requestIdRef.current) return;
-          setLoading(false);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/maps/autocomplete?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        if (requestId !== requestIdRef.current) return;
 
-          const googleSuggestions =
-            status === google.maps.places.PlacesServiceStatus.OK && predictions
-              ? predictions.slice(0, 6).map((prediction) => ({
-                  id: prediction.place_id,
-                  label: prediction.structured_formatting?.main_text || prediction.description,
-                  description:
-                    prediction.structured_formatting?.secondary_text || prediction.description,
-                  placeId: prediction.place_id,
-                  source: "google" as const,
-                }))
-              : [];
+        const osmSuggestions: AddressSuggestion[] = Array.isArray(data?.data?.suggestions)
+          ? data.data.suggestions.map((item: AddressSuggestion) => ({
+              ...item,
+              source: "osm" as const,
+            }))
+          : [];
 
-          const combined = [
-            ...recents,
-            ...googleSuggestions.filter(
-              (suggestion) =>
-                !recents.some(
-                  (recent) => recent.label.toLowerCase() === suggestion.label.toLowerCase()
-                )
-            ),
-          ];
-          setSuggestions(combined);
-          setActiveIndex(0);
-        }
-      );
-    }, 200);
+        setSuggestions([
+          ...recents,
+          ...osmSuggestions.filter(
+            (suggestion) =>
+              !recents.some(
+                (recent) => recent.label.toLowerCase() === suggestion.label.toLowerCase()
+              )
+          ),
+        ]);
+        setActiveIndex(0);
+      } catch {
+        if (requestId !== requestIdRef.current) return;
+        setSuggestions(recents);
+      } finally {
+        if (requestId === requestIdRef.current) setLoading(false);
+      }
+    }, 300);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [value, mapsReady, recentSuggestions]);
+  }, [value, recentSuggestions]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -160,30 +118,7 @@ export function AddressAutocomplete({
     onChange(suggestion.label);
     setOpen(false);
     setSuggestions([]);
-
-    if (!suggestion.placeId || !placesServiceRef.current) {
-      onSelect(suggestion.label);
-      return;
-    }
-
-    placesServiceRef.current.getDetails(
-      {
-        placeId: suggestion.placeId,
-        fields: ["formatted_address", "geometry", "name"],
-      },
-      (place, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
-          onSelect(suggestion.label);
-          return;
-        }
-
-        const address = place.formatted_address || place.name || suggestion.label;
-        const lat = place.geometry?.location?.lat();
-        const lng = place.geometry?.location?.lng();
-        onChange(address);
-        onSelect(address, lat, lng);
-      }
-    );
+    onSelect(suggestion.label, suggestion.lat, suggestion.lng);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -268,7 +203,6 @@ export function AddressAutocomplete({
           ))}
         </ul>
       )}
-      <div ref={attributionRef} className="hidden" />
     </div>
   );
 }
