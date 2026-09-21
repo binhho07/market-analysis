@@ -12,10 +12,11 @@ Competitor analysis for local businesses. Search an address, find nearby shops, 
 - JavaScript helpers for recent searches, watchlist, and a market snapshot briefing
 - Optional accounts (email or Google)
 - Background crawler dashboard at `/crawler`
+- Queued analysis pipeline with progress (BullMQ + Redis, in-process fallback)
 
 ## Setup
 
-You need Node.js 18+ and a PostgreSQL database.
+You need Node.js 18+ and a PostgreSQL database. Redis is optional; without it, jobs still run in the Next.js process.
 
 ```bash
 git clone https://github.com/binhho07/market-analysis.git
@@ -33,6 +34,23 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Analysis pipeline
+
+`POST /api/analyze` creates an `AnalysisJob` and returns immediately (`202`). A worker then runs:
+
+1. Fetch nearby places
+2. Discover websites (concurrency 2, with retries/rate limits)
+3. Extract prices
+4. Validate data and generate insights
+
+Progress is written to PostgreSQL. The UI follows it over SSE (`/api/analyze/:id/events`) and falls back to polling.
+
+Set `REDIS_URL` to use BullMQ (retries, concurrency, idempotency by job key). Without Redis, the same processor runs in-process.
+
+```bash
+npm run worker   # optional dedicated BullMQ worker
+```
+
 ## Environment
 
 | Variable | Purpose |
@@ -44,7 +62,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | NextAuth |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in (optional) |
 | `BRAVE_SEARCH_API_KEY` | Find salon websites when Google has none |
-| `REDIS_URL` | Optional cache and rate limiting |
+| `REDIS_URL` | Optional cache, rate limiting, and BullMQ |
 
 Enable **Maps JavaScript API**, **Places API**, and **Geocoding API** on the Google Cloud key.
 
@@ -55,7 +73,7 @@ npm run dev          # local server
 npm run build        # production build
 npm run start        # serve the production build
 npm run db:push      # sync Prisma schema to the database
-npm run db:studio    # open Prisma Studio
+npm run worker        # dedicated BullMQ worker (needs REDIS_URL)
 ```
 
 ## App routes
@@ -70,4 +88,4 @@ npm run db:studio    # open Prisma Studio
 
 ## Stack
 
-Next.js 15, TypeScript, Tailwind CSS 4, Prisma, PostgreSQL, Google Maps, Cheerio.
+Next.js 15, TypeScript, Tailwind CSS 4, Prisma, PostgreSQL, BullMQ, Redis, OpenStreetMap.

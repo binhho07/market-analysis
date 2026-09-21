@@ -287,3 +287,26 @@ model Review {
   @@index([publishedAt])
   @@map("reviews")
 }
+
+model AnalysisJob {
+  id              String    @id @default(uuid())
+  status          String    @default("queued") // queued, running, completed, failed
+  stage           String    @default("queued") // queued, places, websites, prices, insights, done
+  address         String
+  latitude        Decimal   @db.Decimal(10, 8)
+  longitude       Decimal   @db.Decimal(11, 8)
+  radiusMiles     Decimal   @map("radius_miles") @db.Decimal(5, 2)
+  competitorCount Int       @map("competitor_count")
+  idempotencyKey  String    @unique @map("idempotency_key")
+  progress        Json      @default("{}")
+  result          Json?
+  error           String?
+  attempts        Int       @default(0)
+  startedAt       DateTime? @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("analysis_jobs")
+}

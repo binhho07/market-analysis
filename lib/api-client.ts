@@ -192,7 +192,30 @@ class ApiClient {
     });
   }
 
-  // Competitor search (requires auth)
+  // Analysis jobs
+  async startAnalysis(params: {
+    address: string;
+    radius: number;
+    competitorCount: number;
+    lat?: number;
+    lng?: number;
+  }) {
+    return this.request<{
+      jobId: string;
+      id: string;
+      status: string;
+      stage: string;
+    }>("/analyze", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getAnalysisJob(jobId: string) {
+    return this.request(`/analyze/${jobId}`);
+  }
+
+  // Competitor search (legacy sync endpoint)
   async searchCompetitors(params: {
     address: string;
     radius: number;
@@ -200,10 +223,7 @@ class ApiClient {
     lat?: number;
     lng?: number;
   }) {
-    return this.request("/competitors/search", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
+    return this.startAnalysis(params);
   }
 
   // Saved searches

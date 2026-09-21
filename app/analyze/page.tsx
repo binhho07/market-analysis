@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SearchForm } from "@/components/SearchForm";
 import { CompetitorTable } from "@/components/CompetitorTable";
 import { PriceBarChart } from "@/components/PriceBarChart";
@@ -12,10 +12,10 @@ import { HeatMapView } from "@/components/HeatMapView";
 import { HistoricalTrackingDashboard } from "@/components/HistoricalTrackingDashboard";
 import { ExportButtons } from "@/components/ExportButtons";
 import { MarketSnapshot } from "@/components/MarketSnapshot";
-import { LoadingSkeleton } from "@/components/LoadingSkeleton";
-import { Button } from "@/components/ui/button";
+import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { Card, CardContent } from "@/components/ui/card";
 import { SearchFormData } from "@/lib/validations";
+import { emptyProgress, type AnalysisJobPublic } from "@/lib/analysis/types";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { ArrowLeft, AlertCircle } from "lucide-react";
@@ -29,96 +29,105 @@ export default function AnalyzePage() {
   const [searchData, setSearchData] = useState<SearchFormData | null>(null);
   const [searchLocation, setSearchLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [job, setJob] = useState<AnalysisJobPublic | null>(null);
+  const pollRef = useRef<number | null>(null);
+  const sourceRef = useRef<EventSource | null>(null);
+
+  const stopListening = () => {
+    sourceRef.current?.close();
+    sourceRef.current = null;
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopListening(), []);
+
+  const applyJob = (next: AnalysisJobPublic) => {
+    setJob({
+      ...next,
+      progress: { ...emptyProgress(), ...next.progress },
+    });
+
+    if (next.status === "completed") {
+      const competitorsData = next.result?.competitors || [];
+      const location = next.result?.searchLocation || null;
+      setCompetitors(competitorsData as any[]);
+      setSearchLocation(location);
+      setHasSearched(true);
+      setIsLoading(false);
+      stopListening();
+      toast.success(`Found ${competitorsData.length} competitors`);
+    }
+
+    if (next.status === "failed") {
+      setError(next.error || "Analysis failed");
+      setIsLoading(false);
+      stopListening();
+      toast.error(next.error || "Analysis failed");
+    }
+  };
+
+  const listenToJob = (jobId: string) => {
+    stopListening();
+
+    const poll = async () => {
+      const response = await apiClient.getAnalysisJob(jobId);
+      if (response.success && response.data) {
+        applyJob(response.data as AnalysisJobPublic);
+      }
+    };
+
+    const source = new EventSource(`/api/analyze/${jobId}/events`);
+    sourceRef.current = source;
+
+    source.onmessage = (event) => {
+      try {
+        applyJob(JSON.parse(event.data) as AnalysisJobPublic);
+      } catch {
+        // ignore malformed chunks
+      }
+    };
+
+    source.onerror = () => {
+      source.close();
+      sourceRef.current = null;
+      if (!pollRef.current) {
+        void poll();
+        pollRef.current = window.setInterval(() => {
+          void poll();
+        }, 1000);
+      }
+    };
+  };
 
   const handleAnalyze = async (data: SearchFormData) => {
     setIsLoading(true);
     setError(null);
     setHasSearched(false);
     setSearchData(data);
+    setJob(null);
+    setCompetitors([]);
 
     try {
-      let lat = data.lat;
-      let lng = data.lng;
-
-      if (typeof lat !== "number" || typeof lng !== "number") {
-        toast.info("Finding location...");
-        const geocodeResult = await apiClient.geocodeAddress(data.address);
-
-        if (!geocodeResult.success || !geocodeResult.data) {
-          throw new Error(geocodeResult.error?.message || "Failed to geocode address");
-        }
-
-        lat = geocodeResult.data.lat;
-        lng = geocodeResult.data.lng;
-      }
-
-      // Then search for competitors
-      toast.info("🔍 Finding competitors...");
-      const competitorResult = await apiClient.searchCompetitors({
+      const queued = await apiClient.startAnalysis({
         address: data.address,
         radius: data.radius,
         competitorCount: data.competitorCount,
-        lat,
-        lng,
+        lat: data.lat,
+        lng: data.lng,
       });
-      
-      toast.info("🤖 Scraping real prices from websites...", { duration: 5000 });
 
-      if (!competitorResult.success || !competitorResult.data) {
-        throw new Error(competitorResult.error?.message || "Failed to search competitors");
+      if (!queued.success || !queued.data?.jobId) {
+        throw new Error(queued.error?.message || "Failed to queue analysis");
       }
 
-      // Transform the data to match expected format
-      const competitorsData = competitorResult.data.competitors || [];
-      const location = competitorResult.data.searchLocation || { lat, lng };
-      
-      setCompetitors(competitorsData);
-      setSearchLocation(location);
-      setHasSearched(true);
-      
-      toast.success(`✅ Found ${competitorsData.length} competitors with real pricing data!`);
-
-      // Save search history
-      console.log("🔄 Starting to save search history...");
-      try {
-        console.log("📝 Sending history data:", {
-          address: data.address,
-          location,
-          radius: data.radius,
-          competitorCount: competitorsData.length,
-        });
-        
-        const saveResponse = await fetch("/api/history/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            searchAddress: data.address,
-            latitude: location.lat,
-            longitude: location.lng,
-            radiusMiles: data.radius,
-            competitors: competitorsData,
-          }),
-        });
-        
-        console.log("📡 Response status:", saveResponse.status, saveResponse.statusText);
-        
-        if (!saveResponse.ok) {
-          const errorData = await saveResponse.json();
-          console.error("❌ Failed to save history:", errorData);
-        } else {
-          const successData = await saveResponse.json();
-          console.log("✅ Search history saved successfully!", successData);
-        }
-      } catch (historyErr) {
-        console.error("💥 Exception saving search history:", historyErr);
-      }
-
-      toast.success(`Found ${competitorsData.length} competitors!`);
+      toast.success("Analysis queued");
+      listenToJob(queued.data.jobId);
     } catch (err: any) {
-      console.error("Analysis error:", err);
       setError(err.message || "An error occurred during analysis");
       toast.error(err.message || "Failed to analyze competitors");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -169,14 +178,30 @@ export default function AnalyzePage() {
           <SearchForm onAnalyze={handleAnalyze} isLoading={isLoading} />
         </motion.div>
 
-        {/* Loading State */}
-        {isLoading && (
+        {/* Pipeline progress */}
+        {isLoading && job && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <LoadingSkeleton />
+            <AnalysisProgress job={job} />
+          </motion.div>
+        )}
+
+        {isLoading && !job && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <AnalysisProgress
+              job={{
+                id: "queued",
+                status: "queued",
+                stage: "queued",
+                progress: emptyProgress(),
+              }}
+            />
           </motion.div>
         )}
 
