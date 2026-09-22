@@ -6,6 +6,16 @@ import { markStage, setJobProgress } from "./progress";
 import { mapPool } from "./pool";
 import { buildEvidencePack } from "./evidence";
 import { writeGroundedReport } from "./llm-report";
+import {
+  ASSUMED_TIER_CONFIDENCE,
+  TIER_ESTIMATE_CONFIDENCE,
+  WEBSITE_PRICE_CONFIDENCE,
+  confidenceWeightedScore,
+  hoursPerWeekFromOpeningHours,
+  pricePoint,
+  staffBandFromReviews,
+  dataPoint,
+} from "@/lib/provenance";
 
 export async function processAnalysisJob(payload: AnalysisJobPayload) {
   const { jobId, address, lat, lng, radius, competitorCount } = payload;
@@ -40,15 +50,21 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
 
     const competitors = mergedPlaces
       .map((place) => {
+        const priceLevelKnown = place.priceLevel != null;
         const priceLevel = place.priceLevel || 2;
-        const priceRange =
-          priceLevel === 1 ? "$" : priceLevel === 2 ? "$$" : priceLevel === 3 ? "$$$" : "$$$$";
-        const rating = place.rating || 3;
-        const reviews = place.userRatingsTotal || 1;
+        const priceRange = !priceLevelKnown
+          ? "unknown"
+          : priceLevel === 1
+            ? "$"
+            : priceLevel === 2
+              ? "$$"
+              : priceLevel === 3
+                ? "$$$"
+                : "$$$$";
         const distance = calculateDistance(lat, lng, place.location.lat, place.location.lng) || 0.1;
-        const score = ((rating / 5) * 10) * (Math.log(reviews + 1) * 2) * ((1 / Math.max(distance, 0.1)) * 0.5);
+        const estimateConfidence = priceLevelKnown ? TIER_ESTIMATE_CONFIDENCE : ASSUMED_TIER_CONFIDENCE;
 
-        return {
+        const competitor = {
           id: place.placeId,
           placeId: place.placeId,
           name: place.name,
@@ -59,12 +75,18 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
           rating: place.rating || 0,
           reviewCount: place.userRatingsTotal || 0,
           priceRange,
+          priceLevelKnown,
+          estimateConfidence,
           distanceMiles: distance,
-          samplePrices: { gel: null as number | null, pedicure: null as number | null, acrylic: null as number | null },
-          staffBand: (place.userRatingsTotal || 0) > 200 ? "8+" : (place.userRatingsTotal || 0) > 100 ? "4-7" : "1-3",
-          hoursPerWeek: 50 + Math.floor(Math.random() * 30),
-          amenities: ["Wi-Fi", "Wheelchair Accessible", "Parking"].slice(0, Math.floor(Math.random() * 3) + 1),
-          competitiveScore: Math.round(score * 10) / 10,
+          samplePrices: {
+            gel: pricePoint(null, "estimated", 0),
+            pedicure: pricePoint(null, "estimated", 0),
+            acrylic: pricePoint(null, "estimated", 0),
+          },
+          staffBand: staffBandFromReviews(place.userRatingsTotal || 0),
+          hoursPerWeek: hoursPerWeekFromOpeningHours(place.openingHours),
+          amenities: dataPoint<string[]>([], "estimated", 0),
+          competitiveScore: 0,
           discoveredWebsite: false,
           websiteConfidence: "low" as string,
           websiteScore: 0,
@@ -73,6 +95,8 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
           priceSource: "estimated",
           scrapedServices: [] as Array<{ name: string; price: number }>,
         };
+        competitor.competitiveScore = confidenceWeightedScore(competitor);
+        return competitor;
       })
       .sort((a, b) =>
         Math.abs(a.competitiveScore - b.competitiveScore) > 1
@@ -126,19 +150,22 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
     await mapPool(competitors, 3, async (comp) => {
       const priceLevelMap: Record<string, number> = { $: 1, $$: 2, $$$: 3, $$$$: 4 };
       const estimates = estimatePrices(priceLevelMap[comp.priceRange] || 2);
-      let gel = estimates.gel;
-      let pedicure = estimates.pedicure;
-      let acrylic = estimates.acrylic;
+      const tierConfidence = comp.estimateConfidence;
+      let gel = pricePoint(estimates.gel, "estimated", tierConfidence);
+      let pedicure = pricePoint(estimates.pedicure, "estimated", tierConfidence);
+      let acrylic = pricePoint(estimates.acrylic, "estimated", tierConfidence);
       let source = "estimated";
 
       try {
         const scrapeUrl = comp.servicesPage || comp.menuPage || comp.website;
         const scraped = await smartScrape(comp.name, scrapeUrl, comp.websiteScore);
         if (scraped.success && scraped.source === "scraped") {
-          gel = scraped.gel || gel;
-          pedicure = scraped.pedicure || pedicure;
-          acrylic = scraped.acrylic || acrylic;
-          source = "scraped";
+          if (scraped.gel) gel = pricePoint(scraped.gel, "website", WEBSITE_PRICE_CONFIDENCE, scrapeUrl);
+          if (scraped.pedicure) pedicure = pricePoint(scraped.pedicure, "website", WEBSITE_PRICE_CONFIDENCE, scrapeUrl);
+          if (scraped.acrylic) acrylic = pricePoint(scraped.acrylic, "website", WEBSITE_PRICE_CONFIDENCE, scrapeUrl);
+          if (gel.source === "website" || pedicure.source === "website" || acrylic.source === "website") {
+            source = "scraped";
+          }
           if (scraped.services?.length) {
             comp.scrapedServices = scraped.services.slice(0, 10);
           }
@@ -149,10 +176,17 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
 
       comp.samplePrices = { gel, pedicure, acrylic };
       comp.priceSource = source;
+      comp.competitiveScore = confidenceWeightedScore(comp);
       pricedCount += 1;
       progress = markStage(progress, "prices", "running", pricedCount, competitors.length);
       await setJobProgress(jobId, "prices", progress);
     });
+
+    competitors.sort((a, b) =>
+      Math.abs(a.competitiveScore - b.competitiveScore) > 1
+        ? b.competitiveScore - a.competitiveScore
+        : a.distanceMiles - b.distanceMiles
+    );
 
     progress = markStage(progress, "prices", "done", competitors.length, competitors.length);
     progress = markStage(progress, "insights", "running", 0, 1);

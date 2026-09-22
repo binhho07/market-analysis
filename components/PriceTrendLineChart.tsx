@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp } from "lucide-react";
+import { readPositive } from "@/lib/provenance";
 
 interface Competitor {
   name: string;
@@ -25,9 +26,9 @@ export function PriceTrendLineChart({ competitors }: PriceTrendLineChartProps) {
   const data = sortedCompetitors.map((comp) => ({
     name: comp.name.split(' ').slice(0, 2).join(' '), // Shortened name
     distance: `${comp.distanceMiles}mi`,
-    Gel: comp.samplePrices.gel,
-    Pedicure: comp.samplePrices.pedicure,
-    Acrylic: comp.samplePrices.acrylic,
+    Gel: readPositive(comp.samplePrices?.gel),
+    Pedicure: readPositive(comp.samplePrices?.pedicure),
+    Acrylic: readPositive(comp.samplePrices?.acrylic),
   }));
 
   return (
