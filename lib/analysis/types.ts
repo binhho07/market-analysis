@@ -1,3 +1,6 @@
+import type { EvidencePack } from "./evidence";
+import type { GroundedReport } from "./llm-report";
+
 export const ANALYSIS_STAGES = ["places", "websites", "prices", "insights"] as const;
 
 export type AnalysisStage = (typeof ANALYSIS_STAGES)[number];
@@ -27,6 +30,12 @@ export interface AnalysisJobPayload {
   competitorCount: number;
 }
 
+export interface AnalysisInsights {
+  snapshot: unknown;
+  evidence: EvidencePack;
+  report: GroundedReport;
+}
+
 export interface AnalysisJobPublic {
   id: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -35,7 +44,12 @@ export interface AnalysisJobPublic {
   result?: {
     competitors: unknown[];
     searchLocation: { lat: number; lng: number };
-    insights?: unknown;
+    insights?: AnalysisInsights | null;
+    meta?: {
+      searchAddress?: string;
+      radius?: number;
+      count?: number;
+    };
   } | null;
   error?: string | null;
 }

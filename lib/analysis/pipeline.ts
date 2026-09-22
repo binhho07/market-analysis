@@ -4,6 +4,8 @@ import { buildMarketSnapshot } from "@/lib/js/marketSnapshot.js";
 import { emptyProgress, type AnalysisJobPayload } from "./types";
 import { markStage, setJobProgress } from "./progress";
 import { mapPool } from "./pool";
+import { buildEvidencePack } from "./evidence";
+import { writeGroundedReport } from "./llm-report";
 
 export async function processAnalysisJob(payload: AnalysisJobPayload) {
   const { jobId, address, lat, lng, radius, competitorCount } = payload;
@@ -156,7 +158,15 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
     progress = markStage(progress, "insights", "running", 0, 1);
     await setJobProgress(jobId, "insights", progress);
 
-    const insights = buildMarketSnapshot(competitors);
+    const snapshot = buildMarketSnapshot(competitors);
+    const evidence = buildEvidencePack(competitors, {
+      address,
+      lat,
+      lng,
+      radiusMiles: radius,
+    });
+    const report = await writeGroundedReport(evidence);
+    const insights = { snapshot, evidence, report };
     try {
       await saveSearchHistory({
         searchAddress: address,

@@ -7,7 +7,7 @@ Competitor analysis for local businesses. Search an address, find nearby shops, 
 - Search competitors by address and radius
 - Google Maps view plus heat map
 - Price comparison for gel, pedicure, and acrylic
-- Charts, AI-style insights, and search history
+- Charts, grounded AI insights (evidence JSON → LLM), and search history
 - CSV / PDF export
 - JavaScript helpers for recent searches, watchlist, and a market snapshot briefing
 - Optional accounts (email or Google)
@@ -41,9 +41,15 @@ Open [http://localhost:3000](http://localhost:3000).
 1. Fetch nearby places
 2. Discover websites (concurrency 2, with retries/rate limits)
 3. Extract prices
-4. Validate data and generate insights
+4. Build evidence JSON and generate a grounded market report
 
 Progress is written to PostgreSQL. The UI follows it over SSE (`/api/analyze/:id/events`) and falls back to polling.
+
+### AI insights pipeline
+
+Raw competitor data → deterministic metrics → **Evidence JSON** → optional LLM → grounded report.
+
+Each claim links to a finding in the evidence pack. Click **Why?** in the UI to inspect metrics, method, and source rows. The LLM is constrained to the evidence JSON only; without `OPENAI_API_KEY`, the app falls back to a deterministic summary from the same pack.
 
 Set `REDIS_URL` to use BullMQ (retries, concurrency, idempotency by job key). Without Redis, the same processor runs in-process.
 
@@ -63,6 +69,8 @@ npm run worker   # optional dedicated BullMQ worker
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in (optional) |
 | `BRAVE_SEARCH_API_KEY` | Find salon websites when Google has none |
 | `REDIS_URL` | Optional cache, rate limiting, and BullMQ |
+| `OPENAI_API_KEY` | Optional grounded LLM report from evidence JSON |
+| `OPENAI_MODEL` | Model name (default `gpt-4o-mini`) |
 
 Enable **Maps JavaScript API**, **Places API**, and **Geocoding API** on the Google Cloud key.
 

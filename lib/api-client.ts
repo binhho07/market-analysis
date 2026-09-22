@@ -215,6 +215,22 @@ class ApiClient {
     return this.request(`/analyze/${jobId}`);
   }
 
+  async generateInsights(params: {
+    competitors: any[];
+    address?: string;
+    lat?: number;
+    lng?: number;
+    radius?: number;
+  }) {
+    return this.request<{
+      evidence: import("@/lib/analysis/evidence").EvidencePack;
+      report: import("@/lib/analysis/llm-report").GroundedReport;
+    }>("/insights", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
   // Competitor search (legacy sync endpoint)
   async searchCompetitors(params: {
     address: string;

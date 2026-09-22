@@ -26,6 +26,7 @@ export default function AnalyzePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [competitors, setCompetitors] = useState<any[]>([]);
+  const [insights, setInsights] = useState<any>(null);
   const [searchData, setSearchData] = useState<SearchFormData | null>(null);
   const [searchLocation, setSearchLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export default function AnalyzePage() {
       const competitorsData = next.result?.competitors || [];
       const location = next.result?.searchLocation || null;
       setCompetitors(competitorsData as any[]);
+      setInsights(next.result?.insights || null);
       setSearchLocation(location);
       setHasSearched(true);
       setIsLoading(false);
@@ -257,7 +259,14 @@ export default function AnalyzePage() {
             </div>
 
             {/* AI Insights */}
-            <AIInsights competitors={competitors} />
+            <AIInsights
+              competitors={competitors}
+              insights={insights}
+              address={searchData?.address}
+              lat={searchLocation?.lat}
+              lng={searchLocation?.lng}
+              radius={searchData?.radius}
+            />
 
             {/* Historical Tracking Dashboard */}
             <HistoricalTrackingDashboard currentSearchLocation={searchLocation || undefined} />
