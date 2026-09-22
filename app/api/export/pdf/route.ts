@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-response";
-import { describeProvenance, readPositive, weightedAverage } from "@/lib/provenance";
 
 interface CompetitorExport {
   name: string;
@@ -32,9 +31,9 @@ export async function POST(request: NextRequest) {
 
     // Calculate summary stats
     const avgRating = (competitors.reduce((sum, c) => sum + (c.rating || 0), 0) / competitors.length).toFixed(1);
-    const avgGelPrice = (weightedAverage(competitors.map((c) => c.samplePrices?.gel)) ?? 0).toFixed(2);
-    const avgPedicurePrice = (weightedAverage(competitors.map((c) => c.samplePrices?.pedicure)) ?? 0).toFixed(2);
-    const avgAcrylicPrice = (weightedAverage(competitors.map((c) => c.samplePrices?.acrylic)) ?? 0).toFixed(2);
+    const avgGelPrice = (competitors.reduce((sum, c) => sum + (c.samplePrices?.gel || 0), 0) / competitors.length).toFixed(2);
+    const avgPedicurePrice = (competitors.reduce((sum, c) => sum + (c.samplePrices?.pedicure || 0), 0) / competitors.length).toFixed(2);
+    const avgAcrylicPrice = (competitors.reduce((sum, c) => sum + (c.samplePrices?.acrylic || 0), 0) / competitors.length).toFixed(2);
     const topCompetitor = competitors.sort((a, b) => (b.competitiveScore || 0) - (a.competitiveScore || 0))[0];
 
     // Generate professional HTML report
@@ -254,9 +253,9 @@ export async function POST(request: NextRequest) {
           <td class="rating">${c.rating || "N/A"} ⭐</td>
           <td>${c.reviewCount || 0}</td>
           <td>${c.priceRange || "N/A"}</td>
-          <td>$${readPositive(c.samplePrices?.gel) ?? "N/A"}<br><small>${describeProvenance(c.samplePrices?.gel).label}</small></td>
-          <td>$${readPositive(c.samplePrices?.pedicure) ?? "N/A"}<br><small>${describeProvenance(c.samplePrices?.pedicure).label}</small></td>
-          <td>$${readPositive(c.samplePrices?.acrylic) ?? "N/A"}<br><small>${describeProvenance(c.samplePrices?.acrylic).label}</small></td>
+          <td>$${c.samplePrices?.gel || "N/A"}</td>
+          <td>$${c.samplePrices?.pedicure || "N/A"}</td>
+          <td>$${c.samplePrices?.acrylic || "N/A"}</td>
           <td>${c.distanceMiles?.toFixed(2) || "N/A"}</td>
           <td><span class="${threatClass}">${score} - ${threatLabel}</span></td>
         </tr>

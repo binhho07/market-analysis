@@ -1,11 +1,3 @@
-import {
-  confidenceWeightedScore,
-  inputConfidence,
-  isDataPoint,
-  readPositive,
-  weightedAverage,
-} from "@/lib/provenance";
-
 export type EvidenceSource = "places" | "scraped" | "estimated" | "derived";
 
 export interface EvidenceItem {
@@ -13,7 +5,6 @@ export interface EvidenceItem {
   field: string;
   value: string | number | null;
   source: EvidenceSource;
-  confidence?: number;
   detail?: string;
 }
 
@@ -50,31 +41,42 @@ export interface CompetitorRecord {
   distanceMiles?: number;
   priceSource?: string;
   samplePrices?: {
-    gel?: unknown;
-    pedicure?: unknown;
-    acrylic?: unknown;
+    gel?: number | null;
+    pedicure?: number | null;
+    acrylic?: number | null;
   };
 }
 
-function pointSource(field: unknown, fallback: EvidenceSource = "estimated"): EvidenceSource {
-  if (!isDataPoint(field)) return fallback;
-  if (field.source === "website") return "scraped";
-  if (field.source === "google") return "places";
-  return "estimated";
+function num(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function pointDetail(field: unknown, fallback: string): string {
-  if (isDataPoint(field)) {
-    const pct = Math.round(field.confidence * 100);
-    return field.sourceUrl || `${field.source} · ${pct}% confidence`;
+function avg(values: Array<number | null>): number | null {
+  const valid = values.filter((value): value is number => value !== null);
+  if (!valid.length) return null;
+  return Math.round((valid.reduce((sum, value) => sum + value, 0) / valid.length) * 10) / 10;
+}
+
+function priceSource(competitor: CompetitorRecord): EvidenceSource {
+  return competitor.priceSource === "scraped" ? "scraped" : competitor.priceSource === "estimated" ? "estimated" : "places";
+}
+
+function sourceDetail(competitor: CompetitorRecord): string {
+  if (competitor.priceSource === "scraped" && competitor.website && competitor.website !== "#") {
+    return competitor.website;
   }
-  return fallback;
+  if (competitor.priceSource === "estimated") {
+    return `estimated from listed tier ${competitor.priceRange || "unknown"}`;
+  }
+  return competitor.address || "places listing";
 }
 
-function hasVerifiedPrice(competitor: CompetitorRecord): boolean {
-  return [competitor.samplePrices?.gel, competitor.samplePrices?.pedicure, competitor.samplePrices?.acrylic].some(
-    (field) => isDataPoint(field) && field.source === "website"
-  );
+function threatScore(competitor: CompetitorRecord): number {
+  const rating = Number(competitor.rating) || 0;
+  const reviews = Number(competitor.reviewCount) || 0;
+  const distance = Math.max(Number(competitor.distanceMiles) || 1, 0.1);
+  return Math.min(Math.round(((rating * Math.log(reviews + 1)) / distance) * 10), 100);
 }
 
 function confidenceFromSample(n: number, scrapedShare: number): number {
@@ -88,14 +90,14 @@ export function buildEvidencePack(
 ): EvidencePack {
   const list = Array.isArray(competitors) ? competitors.filter((item) => item?.name) : [];
   const n = list.length;
-  const scrapedCount = list.filter((item) => hasVerifiedPrice(item) || item.priceSource === "scraped").length;
+  const scrapedCount = list.filter((item) => item.priceSource === "scraped").length;
   const scrapedShare = n ? scrapedCount / n : 0;
   const findings: Finding[] = [];
 
-  const gels = list.map((item) => item.samplePrices?.gel);
-  const pedis = list.map((item) => item.samplePrices?.pedicure);
-  const acrylics = list.map((item) => item.samplePrices?.acrylic);
-  const ratings = list.map((item) => item.rating);
+  const gels = list.map((item) => num(item.samplePrices?.gel));
+  const pedis = list.map((item) => num(item.samplePrices?.pedicure));
+  const acrylics = list.map((item) => num(item.samplePrices?.acrylic));
+  const ratings = list.map((item) => num(item.rating));
 
   findings.push({
     id: "F1",
@@ -105,15 +107,14 @@ export function buildEvidencePack(
     method: "Count of returned competitors; no external market-size estimate.",
     metrics: {
       competitorCount: n,
-      avgRating: weightedAverage(ratings),
+      avgRating: avg(ratings),
       scrapedPriceCount: scrapedCount,
       estimatedPriceCount: n - scrapedCount,
     },
     evidence: list.slice(0, 12).map((item) => ({
       competitor: item.name,
       field: "listing",
-      value: readPositive(item.rating),
-      confidence: 0.92,
+      value: item.rating ?? null,
       source: "places",
       detail: `${item.reviewCount || 0} reviews · ${item.distanceMiles ?? "?"} mi`,
     })),
@@ -124,13 +125,12 @@ export function buildEvidencePack(
     finding: "price_benchmarks",
     title: "Observed service prices in this sample",
     confidence: confidenceFromSample(n, scrapedShare),
-    method: "Confidence-weighted average. A website price (96%) counts more than a tier estimate (41% or 25%). Missing prices are excluded.",
+    method: "Average of positive observed prices only. Missing prices are excluded, not imputed into the average.",
     metrics: {
-      avgGel: weightedAverage(gels),
-      avgPedicure: weightedAverage(pedis),
-      avgAcrylic: weightedAverage(acrylics),
-      gelObservations: gels.filter((value) => readPositive(value) !== null).length,
-      verifiedGelCount: gels.filter((value) => isDataPoint(value) && value.source === "website").length,
+      avgGel: avg(gels),
+      avgPedicure: avg(pedis),
+      avgAcrylic: avg(acrylics),
+      gelObservations: gels.filter((value) => value !== null).length,
     },
     evidence: list.flatMap((item) =>
       (
@@ -140,57 +140,54 @@ export function buildEvidencePack(
           ["acrylic", item.samplePrices?.acrylic],
         ] as const
       )
-        .filter(([, value]) => readPositive(value) !== null)
+        .filter(([, value]) => num(value) !== null)
         .map(([field, value]) => ({
           competitor: item.name,
           field,
-          value: readPositive(value),
-          source: pointSource(value),
-          confidence: isDataPoint(value) ? value.confidence : undefined,
-          detail: pointDetail(value, item.address || "places listing"),
+          value: num(value),
+          source: priceSource(item),
+          detail: sourceDetail(item),
         }))
     ),
   });
 
   const cheapestGel = [...list]
-    .filter((item) => readPositive(item.samplePrices?.gel) !== null)
-    .sort((a, b) => (readPositive(a.samplePrices?.gel) || 0) - (readPositive(b.samplePrices?.gel) || 0))[0];
+    .filter((item) => num(item.samplePrices?.gel) !== null)
+    .sort((a, b) => (num(a.samplePrices?.gel) || 0) - (num(b.samplePrices?.gel) || 0))[0];
 
   if (cheapestGel) {
-    const gel = cheapestGel.samplePrices?.gel;
     findings.push({
       id: "F3",
       finding: "lowest_gel_price",
       title: "Lowest gel price in this sample",
-      confidence: isDataPoint(gel) ? gel.confidence : 0.4,
-      method: "Minimum gel price. Confidence is the confidence of that price point, not of the whole market.",
+      confidence: cheapestGel.priceSource === "scraped" ? 0.86 : 0.58,
+      method: "Min gel price among competitors with a positive gel value.",
       metrics: {
         competitor: cheapestGel.name,
-        gel: readPositive(gel),
-        sampleAvgGel: weightedAverage(gels),
+        gel: num(cheapestGel.samplePrices?.gel),
+        sampleAvgGel: avg(gels),
       },
       evidence: [
         {
           competitor: cheapestGel.name,
           field: "gel",
-          value: readPositive(gel),
-          source: pointSource(gel),
-          confidence: isDataPoint(gel) ? gel.confidence : undefined,
-          detail: pointDetail(gel, cheapestGel.address || "places listing"),
+          value: num(cheapestGel.samplePrices?.gel),
+          source: priceSource(cheapestGel),
+          detail: sourceDetail(cheapestGel),
         },
       ],
     });
   }
 
-  const scored = list.map((item) => ({ item, score: confidenceWeightedScore(item) }));
+  const scored = list.map((item) => ({ item, score: threatScore(item) }));
   const topThreat = [...scored].sort((a, b) => b.score - a.score)[0];
   if (topThreat) {
     findings.push({
       id: "F4",
       finding: "strongest_nearby_threat",
       title: "Highest proximity-weighted threat score",
-      confidence: inputConfidence(topThreat.item),
-      method: "Base threat is rating * ln(reviews+1) / distance, capped at 100, then multiplied by data confidence. Confidence is 60% Google listing fields and 40% price-point confidence, so a tier estimate scores lower than a website price.",
+      confidence: 0.72,
+      method: "score = min(100, round((rating * ln(reviews+1) / max(distanceMiles, 0.1)) * 10)). This is a local ranking heuristic, not a predicted conversion rate.",
       metrics: {
         competitor: topThreat.item.name,
         score: topThreat.score,

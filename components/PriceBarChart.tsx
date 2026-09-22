@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { motion } from "framer-motion";
-import { readPositive } from "@/lib/provenance";
 
 interface Competitor {
   name: string;
@@ -21,9 +20,9 @@ interface PriceBarChartProps {
 export function PriceBarChart({ competitors }: PriceBarChartProps) {
   const data = competitors.map(comp => ({
     name: comp.name.split(' ').slice(0, 2).join(' '), // Shortened name
-    gel: readPositive(comp.samplePrices?.gel),
-    pedicure: readPositive(comp.samplePrices?.pedicure),
-    acrylic: readPositive(comp.samplePrices?.acrylic)
+    gel: comp.samplePrices.gel,
+    pedicure: comp.samplePrices.pedicure,
+    acrylic: comp.samplePrices.acrylic
   }));
 
   return (
@@ -36,7 +35,7 @@ export function PriceBarChart({ competitors }: PriceBarChartProps) {
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-gray-900">Service Pricing Comparison</CardTitle>
           <CardDescription className="text-gray-600">
-            Compare prices for key services. Estimated tier prices are included here; market averages weight them down.
+            Compare prices for key services across all competitors
           </CardDescription>
         </CardHeader>
         <CardContent>

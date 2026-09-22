@@ -63,9 +63,6 @@ export function MarketSnapshot({ competitors, address }: MarketSnapshotProps) {
           {snapshot.topThreat ? ` (score ${snapshot.topThreat.threatScore})` : ""}
         </p>
         <p className="text-sm text-gray-600">{snapshot.gap}</p>
-        <p className="text-xs text-gray-500">
-          Averages and threat scores are weighted by data confidence. Website prices count more than tier estimates.
-        </p>
       </CardContent>
     </Card>
   );

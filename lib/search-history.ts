@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { readPositive, weightedAverage } from "@/lib/provenance";
 import { Prisma } from "@prisma/client";
 
 export interface HistoricalData {
@@ -57,9 +56,9 @@ export async function saveSearchHistory(params: {
 
   // Calculate aggregated metrics
   const avgRating = competitors.reduce((sum, c) => sum + (c.rating || 0), 0) / competitors.length;
-  const avgGelPrice = weightedAverage(competitors.map((c) => c.samplePrices?.gel)) ?? 0;
-  const avgPedicurePrice = weightedAverage(competitors.map((c) => c.samplePrices?.pedicure)) ?? 0;
-  const avgAcrylicPrice = weightedAverage(competitors.map((c) => c.samplePrices?.acrylic)) ?? 0;
+  const avgGelPrice = competitors.reduce((sum, c) => sum + (c.samplePrices?.gel || 0), 0) / competitors.length;
+  const avgPedicurePrice = competitors.reduce((sum, c) => sum + (c.samplePrices?.pedicure || 0), 0) / competitors.length;
+  const avgAcrylicPrice = competitors.reduce((sum, c) => sum + (c.samplePrices?.acrylic || 0), 0) / competitors.length;
 
   console.log("📊 [saveSearchHistory] Calculated metrics:", {
     avgRating,
@@ -89,9 +88,9 @@ export async function saveSearchHistory(params: {
           rating: c.rating,
           reviewCount: c.reviewCount,
           priceRange: c.priceRange,
-          gelPrice: readPositive(c.samplePrices?.gel),
-          pedicurePrice: readPositive(c.samplePrices?.pedicure),
-          acrylicPrice: readPositive(c.samplePrices?.acrylic),
+          gelPrice: c.samplePrices?.gel,
+          pedicurePrice: c.samplePrices?.pedicure,
+          acrylicPrice: c.samplePrices?.acrylic,
           distanceMiles: c.distanceMiles,
           competitiveScore: c.competitiveScore,
         })),

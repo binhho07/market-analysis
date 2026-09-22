@@ -1,5 +1,3 @@
-import type { DataPoint } from "./provenance";
-
 export interface Competitor {
   id: string;
   name: string;
@@ -9,12 +7,12 @@ export interface Competitor {
   reviewCount: number;
   priceRange: string;
   samplePrices: {
-    gel: number | DataPoint<number | null>;
-    pedicure: number | DataPoint<number | null>;
-    acrylic: number | DataPoint<number | null>;
+    gel: number;
+    pedicure: number;
+    acrylic: number;
   };
-  staffBand: string | DataPoint<string | null>;
-  hoursPerWeek: number | DataPoint<number | null>;
-  amenities: string[] | DataPoint<string[]>;
+  staffBand: string;
+  hoursPerWeek: number;
+  amenities: string[];
   distanceMiles: number;
 }

@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Competitor } from "@/lib/mockData";
 import { Star, ExternalLink, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
-import { competitiveScore, dataConfidence, scoreBadgeClass, scoreLabel } from "@/lib/js/competitorScore.js";
-import { ObservedCell, PriceCell } from "@/components/ProvenanceNote";
-import { readValue } from "@/lib/provenance";
+import { competitiveScore, scoreBadgeClass, scoreLabel } from "@/lib/js/competitorScore.js";
 import { getWatchlist, toggleWatchlist } from "@/lib/js/watchlist.js";
 
 interface CompetitorTableProps {
@@ -48,7 +46,7 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
                   <TableHead className="font-bold">Gel</TableHead>
                   <TableHead className="font-bold">Pedicure</TableHead>
                   <TableHead className="font-bold">Acrylic</TableHead>
-                  <TableHead className="font-bold">Staff (inferred)</TableHead>
+                  <TableHead className="font-bold">Staff</TableHead>
                   <TableHead className="font-bold">Hours/wk</TableHead>
                   <TableHead className="font-bold">Amenities</TableHead>
                   <TableHead className="font-bold">Distance</TableHead>
@@ -58,9 +56,6 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
               <TableBody>
                 {competitors.map((competitor) => {
                   const threatScore = competitiveScore(competitor);
-                  const confidence = dataConfidence(competitor);
-                  const amenities = readValue(competitor.amenities);
-                  const amenityList = Array.isArray(amenities) ? amenities : [];
                   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(competitor.name + ' ' + (competitor.address || ''))}`;
                   const hasValidWebsite = competitor.website && competitor.website !== "#" && competitor.website !== "";
                   const websiteUrl = hasValidWebsite ? competitor.website : `https://www.google.com/search?q=${encodeURIComponent(competitor.name + ' ' + (competitor.address || ''))}`;
@@ -104,9 +99,6 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
                           <span className="text-xs text-muted-foreground">
                             {scoreLabel(threatScore)}
                           </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {Math.round(confidence * 100)}% data confidence
-                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -121,33 +113,29 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
                     <TableCell>
                       <Badge variant="secondary">{competitor.priceRange}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <PriceCell field={competitor.samplePrices?.gel} />
+                    <TableCell className="font-medium">
+                      {competitor.samplePrices.gel ? `$${competitor.samplePrices.gel}` : '-'}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {competitor.samplePrices.pedicure ? `$${competitor.samplePrices.pedicure}` : '-'}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {competitor.samplePrices.acrylic ? `$${competitor.samplePrices.acrylic}` : '-'}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {competitor.staffBand}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {competitor.hoursPerWeek}h
                     </TableCell>
                     <TableCell>
-                      <PriceCell field={competitor.samplePrices?.pedicure} />
-                    </TableCell>
-                    <TableCell>
-                      <PriceCell field={competitor.samplePrices?.acrylic} />
-                    </TableCell>
-                    <TableCell>
-                      <ObservedCell field={competitor.staffBand} />
-                    </TableCell>
-                    <TableCell>
-                      <ObservedCell field={competitor.hoursPerWeek} suffix="h" />
-                    </TableCell>
-                    <TableCell>
-                      {amenityList.length > 0 ? (
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {amenityList.map((amenity, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {amenity}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <ObservedCell field={competitor.amenities} />
-                      )}
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {competitor.amenities.map((amenity, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {amenity}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">
                       {competitor.distanceMiles} mi

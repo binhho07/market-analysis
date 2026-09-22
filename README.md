@@ -8,7 +8,6 @@ Competitor analysis for local businesses. Search an address, find nearby shops, 
 - Google Maps view plus heat map
 - Price comparison for gel, pedicure, and acrylic
 - Charts, grounded AI insights (evidence JSON → LLM), and search history
-- Price provenance: each price is Google, website-verified, or estimated, and scores are weighted by confidence
 - CSV / PDF export
 - JavaScript helpers for recent searches, watchlist, and a market snapshot briefing
 - Optional accounts (email or Google)
