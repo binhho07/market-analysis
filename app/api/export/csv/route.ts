@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-response";
+import { describeProvenance, readPositive } from "@/lib/provenance";
 
 interface CompetitorExport {
   name: string;
@@ -33,8 +34,11 @@ export async function POST(request: NextRequest) {
       "Reviews",
       "Price Range",
       "Gel Manicure ($)",
+      "Gel provenance",
       "Pedicure ($)",
+      "Pedicure provenance",
       "Acrylic ($)",
+      "Acrylic provenance",
       "Distance (mi)",
       "Threat Score",
       "Address",
@@ -46,9 +50,12 @@ export async function POST(request: NextRequest) {
       c.rating || "N/A",
       c.reviewCount || 0,
       c.priceRange || "N/A",
-      c.samplePrices?.gel || "N/A",
-      c.samplePrices?.pedicure || "N/A",
-      c.samplePrices?.acrylic || "N/A",
+      readPositive(c.samplePrices?.gel) ?? "N/A",
+      describeProvenance(c.samplePrices?.gel).label,
+      readPositive(c.samplePrices?.pedicure) ?? "N/A",
+      describeProvenance(c.samplePrices?.pedicure).label,
+      readPositive(c.samplePrices?.acrylic) ?? "N/A",
+      describeProvenance(c.samplePrices?.acrylic).label,
       c.distanceMiles?.toFixed(2) || "N/A",
       c.competitiveScore || "N/A",
       c.address || "N/A",

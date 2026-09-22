@@ -34,6 +34,7 @@ function EvidenceTable({ items }: { items: EvidenceItem[] }) {
             <th className="px-3 py-2 font-medium">Field</th>
             <th className="px-3 py-2 font-medium">Value</th>
             <th className="px-3 py-2 font-medium">Source</th>
+            <th className="px-3 py-2 font-medium">Confidence</th>
           </tr>
         </thead>
         <tbody>
@@ -45,6 +46,9 @@ function EvidenceTable({ items }: { items: EvidenceItem[] }) {
               <td className="px-3 py-2 text-gray-600">
                 <span className="font-medium">{item.source}</span>
                 {item.detail ? <span className="block text-xs text-gray-500">{item.detail}</span> : null}
+              </td>
+              <td className="px-3 py-2 text-gray-600">
+                {item.confidence != null ? `${Math.round(item.confidence * 100)}%` : "—"}
               </td>
             </tr>
           ))}
