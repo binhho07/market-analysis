@@ -8,12 +8,12 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      name = "Aventus Nail Spa",
-      address = "94 Meadow Park Ave, Lewis Center, OH, United States",
-      lat = 40.1584,
-      lng = -83.0075,
-      radius = 5000, // 5km in meters
+    const {
+      name,
+      address,
+      lat,
+      lng,
+      radius = 5000,
       deepCrawl = true,
       takeScreenshots = true,
       includeReviews = true,

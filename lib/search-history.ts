@@ -94,6 +94,11 @@ export async function saveSearchHistory(params: {
           acrylicPrice: readPositive(c.samplePrices?.acrylic),
           distanceMiles: c.distanceMiles,
           competitiveScore: c.competitiveScore,
+          services: Array.isArray(c.scrapedServices)
+            ? c.scrapedServices.map((service: { name?: string }) => service.name).filter(Boolean).slice(0, 30)
+            : Array.isArray(c.services)
+              ? c.services.filter((service: unknown) => typeof service === "string").slice(0, 30)
+              : [],
         })),
       },
     },

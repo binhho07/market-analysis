@@ -12,12 +12,39 @@ import { competitiveScore, dataConfidence, scoreBadgeClass, scoreLabel } from "@
 import { ObservedCell, PriceCell } from "@/components/ProvenanceNote";
 import { readValue } from "@/lib/provenance";
 import { getWatchlist, toggleWatchlist } from "@/lib/js/watchlist.js";
+import { toast } from "sonner";
 
 interface CompetitorTableProps {
   competitors: Competitor[];
+  market?: {
+    address?: string;
+    lat?: number;
+    lng?: number;
+    radius?: number;
+  };
 }
 
-export function CompetitorTable({ competitors }: CompetitorTableProps) {
+async function persistWatch(
+  competitor: Competitor & { placeId?: string },
+  market: CompetitorTableProps["market"],
+  watched: boolean
+) {
+  if (market?.lat == null || market.lng == null || !market.address) return;
+  await fetch("/api/watchlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      label: market.address,
+      latitude: market.lat,
+      longitude: market.lng,
+      radiusMiles: market.radius || 5,
+      placeId: competitor.placeId || competitor.id,
+      watched,
+    }),
+  });
+}
+
+export function CompetitorTable({ competitors, market }: CompetitorTableProps) {
   const [watchedIds, setWatchedIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -78,7 +105,11 @@ export function CompetitorTable({ competitors }: CompetitorTableProps) {
                           aria-label={watched ? "Remove from watchlist" : "Add to watchlist"}
                           onClick={() => {
                             const next = toggleWatchlist(competitor);
+                            const watchedNow = next.some((item: { id: string }) => item.id === competitor.id);
                             setWatchedIds(next.map((item: { id: string }) => item.id));
+                            persistWatch(competitor, market, watchedNow).catch(() => {
+                              toast.error("Could not save this watch");
+                            });
                           }}
                         >
                           <Star className={`h-4 w-4 ${watched ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />

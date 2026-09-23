@@ -1,6 +1,6 @@
 import cron from "node-cron";
-import { crawlCompetitors } from "./competitor-crawler";
 import { prisma } from "../prisma";
+import { monitorWatchlist } from "../monitoring/run";
 
 /**
  * Cron job manager for automated competitor crawling
@@ -57,8 +57,8 @@ export class CronManager {
         await this.logCrawlError(name, error as Error);
       }
     }, {
-      scheduled: false, // Don't start immediately
-      timezone: "America/New_York" // EST timezone for Ohio
+      scheduled: false,
+      timezone: "UTC",
     });
 
     job.start();
@@ -71,37 +71,15 @@ export class CronManager {
    */
   private async runCrawl(type: "daily" | "weekly" | "hourly"): Promise<void> {
     const startTime = new Date();
-    
+    const depth = type === "hourly" ? "places" : "prices";
+
     try {
-      // Get target location (Aventus Nail Spa)
-      const targetLocation = {
-        name: "Aventus Nail Spa",
-        address: "94 Meadow Park Ave, Lewis Center, OH, United States",
-        lat: 40.1584, // Approximate coordinates for Lewis Center, OH
-        lng: -83.0075,
-        radius: 5000 // 5km radius
-      };
-
-      // Determine crawl depth based on type
-      const crawlOptions = {
-        deepCrawl: type === "weekly",
-        takeScreenshots: type === "weekly",
-        includeReviews: type !== "hourly",
-        includeSocialMedia: type === "weekly",
-        includeSeoAnalysis: type === "weekly"
-      };
-
-      console.log(`🚀 Starting ${type} crawl for ${targetLocation.name}`);
-      
-      const results = await crawlCompetitors(targetLocation, crawlOptions);
-      
-      // Log crawl completion
+      console.log(`🚀 Monitoring watchlist (${type}, ${depth})`);
+      const results = await monitorWatchlist(depth);
       await this.logCrawlCompletion(type, startTime, results);
-      
-      console.log(`✅ ${type} crawl completed successfully. Found ${results.competitors.length} competitors.`);
-      
+      console.log(`✅ ${type} monitor finished. ${results.watches} watches, ${results.events} events.`);
     } catch (error) {
-      console.error(`❌ ${type} crawl failed:`, error);
+      console.error(`❌ ${type} monitor failed:`, error);
       await this.logCrawlError(type, error as Error);
       throw error;
     }
@@ -113,7 +91,7 @@ export class CronManager {
   private async logCrawlCompletion(
     type: string, 
     startTime: Date, 
-    results: { competitors: unknown[]; processed: number; errors: number }
+    results: { watches: number; events: number; errors?: string[]; note?: string }
   ): Promise<void> {
     try {
       await prisma.crawlLog.create({
@@ -121,11 +99,11 @@ export class CronManager {
           crawlType: type,
           startTime,
           endTime: new Date(),
-          status: "completed",
-          competitorsFound: results.competitors.length,
-          competitorsProcessed: results.processed,
-          errorsCount: results.errors || 0,
-          notes: `Successful ${type} crawl`
+          status: results.errors?.length ? "completed" : "completed",
+          competitorsFound: results.watches,
+          competitorsProcessed: results.events,
+          errorsCount: results.errors?.length || 0,
+          notes: results.note || `Watchlist ${type}: ${results.events} market events`,
         }
       });
     } catch (error) {

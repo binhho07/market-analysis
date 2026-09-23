@@ -153,18 +153,10 @@ export default function CrawlerDashboard() {
   const handleManualCrawl = async () => {
     try {
       setActionLoading("manual");
-      const response = await fetch("/api/crawler/manual-crawl", {
+      const response = await fetch("/api/monitor/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Aventus Nail Spa",
-          address: "94 Meadow Park Ave, Lewis Center, OH, United States",
-          lat: 40.1584,
-          lng: -83.0075,
-          radius: 5000,
-          deepCrawl: true,
-          takeScreenshots: true
-        })
+        body: JSON.stringify({ depth: "prices" }),
       });
 
       if (response.ok) {
@@ -385,7 +377,7 @@ export default function CrawlerDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Discovered Competitors</CardTitle>
-              <CardDescription>Nail spas found within 5km of Aventus Nail Spa</CardDescription>
+              <CardDescription>Competitors saved from watched markets</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>

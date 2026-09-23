@@ -252,6 +252,7 @@ model CompetitorSnapshot {
   acrylicPrice      Decimal?      @map("acrylic_price") @db.Decimal(8, 2)
   distanceMiles     Decimal?      @map("distance_miles") @db.Decimal(10, 2)
   competitiveScore  Int?          @map("competitive_score")
+  services          String[]      @default([])
   snapshotDate      DateTime      @default(now()) @map("snapshot_date")
   
   searchHistory     SearchHistory @relation(fields: [searchHistoryId], references: [id], onDelete: Cascade)
@@ -309,4 +310,40 @@ model AnalysisJob {
 
   @@index([status, createdAt])
   @@map("analysis_jobs")
+}
+
+model WatchTarget {
+  id            String        @id @default(uuid())
+  label         String
+  latitude      Decimal       @db.Decimal(10, 8)
+  longitude     Decimal       @db.Decimal(11, 8)
+  radiusMiles   Decimal       @map("radius_miles") @db.Decimal(5, 2)
+  placeIds      String[]      @default([]) @map("place_ids")
+  monitorArea   Boolean       @default(false) @map("monitor_area")
+  enabled       Boolean       @default(true)
+  lastCrawledAt DateTime?     @map("last_crawled_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  events        MarketEvent[]
+
+  @@index([enabled])
+  @@map("watch_targets")
+}
+
+model MarketEvent {
+  id             String      @id @default(uuid())
+  watchTargetId  String      @map("watch_target_id")
+  placeId        String?     @map("place_id")
+  competitorName String      @map("competitor_name")
+  kind           String
+  severity       String
+  title          String
+  previousValue  String?     @map("previous_value")
+  nextValue      String?     @map("next_value")
+  detectedAt     DateTime    @default(now()) @map("detected_at")
+  readAt         DateTime?   @map("read_at")
+  watchTarget    WatchTarget @relation(fields: [watchTargetId], references: [id], onDelete: Cascade)
+
+  @@index([detectedAt])
+  @@index([watchTargetId, detectedAt])
+  @@map("market_events")
 }

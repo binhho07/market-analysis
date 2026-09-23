@@ -13,6 +13,8 @@ import { HistoricalTrackingDashboard } from "@/components/HistoricalTrackingDash
 import { ExportButtons } from "@/components/ExportButtons";
 import { MarketSnapshot } from "@/components/MarketSnapshot";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
+import { MarketEventsFeed } from "@/components/MarketEventsFeed";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SearchFormData } from "@/lib/validations";
 import { emptyProgress, type AnalysisJobPublic } from "@/lib/analysis/types";
@@ -180,6 +182,8 @@ export default function AnalyzePage() {
           <SearchForm onAnalyze={handleAnalyze} isLoading={isLoading} />
         </motion.div>
 
+        <MarketEventsFeed />
+
         {/* Pipeline progress */}
         {isLoading && job && (
           <motion.div
@@ -237,14 +241,43 @@ export default function AnalyzePage() {
             className="space-y-8"
           >
             {/* Export Buttons */}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (!searchLocation || !searchData?.address) return;
+                  const response = await fetch("/api/watchlist", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      label: searchData.address,
+                      latitude: searchLocation.lat,
+                      longitude: searchLocation.lng,
+                      radiusMiles: searchData.radius,
+                      monitorArea: true,
+                    }),
+                  });
+                  if (response.ok) toast.success("This market will be checked on the next crawl");
+                  else toast.error("Could not save this market");
+                }}
+              >
+                Monitor this market
+              </Button>
               <ExportButtons onExport={handleExport} />
             </div>
 
             <MarketSnapshot competitors={competitors} address={searchData?.address} />
 
             {/* Competitor Table */}
-            <CompetitorTable competitors={competitors} />
+            <CompetitorTable
+              competitors={competitors}
+              market={{
+                address: searchData?.address,
+                lat: searchLocation?.lat,
+                lng: searchLocation?.lng,
+                radius: searchData?.radius,
+              }}
+            />
 
             {/* Charts Section */}
             <div className="space-y-6">

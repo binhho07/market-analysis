@@ -13,6 +13,7 @@ Competitor analysis for local businesses. Search an address, find nearby shops, 
 - JavaScript helpers for recent searches, watchlist, and a market snapshot briefing
 - Optional accounts (email or Google)
 - Background crawler dashboard at `/crawler`
+- Watchlist monitoring: scheduled crawls snapshot a watched market, diff it with the previous snapshot, and publish a market events feed
 - Queued analysis pipeline with progress (BullMQ + Redis, in-process fallback)
 
 ## Setup

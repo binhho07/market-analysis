@@ -209,6 +209,8 @@ export async function processAnalysisJob(payload: AnalysisJobPayload) {
         radiusMiles: radius,
         competitors,
       });
+      const { detectChangesNear } = await import("@/lib/monitoring/run");
+      await detectChangesNear(lat, lng);
     } catch (error) {
       console.warn("Failed to persist search history:", error);
     }
