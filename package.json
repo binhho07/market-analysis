@@ -12,7 +12,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "worker": "npx tsx lib/queue/worker.ts"
+    "worker": "npx tsx lib/queue/worker.ts",
+    "scrape-worker": "npx tsx lib/scraping/worker.ts",
+    "benchmark:scraper": "npx tsx scripts/benchmark-scraper.ts"
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",

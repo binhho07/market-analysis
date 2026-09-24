@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-09-24T03:58:46.926Z",
+  "dataset": {
+    "priceCases": 28,
+    "discoveryCases": 12
+  },
+  "websiteDiscoveryAccuracy": 1,
+  "priceExtractionPrecision": 1,
+  "priceExtractionRecall": 1,
+  "scrapeSuccessRate": 1,
+  "latencyMs": {
+    "p50": 0.3,
+    "p95": 323
+  },
+  "counts": {
+    "labeledPrices": 84,
+    "extractedPrices": 84,
+    "correctPrices": 84,
+    "successfulScrapes": 28,
+    "discoveryCorrect": 12
+  },
+  "misses": []
+}

@@ -5,6 +5,7 @@
 
 import { isBlacklistedDomain } from "@/lib/search/domainClassifier";
 import { batchScrapeWithCheerio } from "./cheerio-scraper";
+import { scrapeWithFallback } from "./engine";
 
 export interface ScraperResult {
   success: boolean;
@@ -78,15 +79,10 @@ export async function smartScrape(
   console.log(`🌐 Scraping ${name}: ${url} (validated, score: ${websiteScore || 'unknown'})`);
 
   try {
-    const scrapedData = await batchScrapeWithCheerio(
-      [{ name, website: url }],
-      1
-    );
+    const result = await scrapeWithFallback(name, url);
 
-    const result = scrapedData.get(name);
-
-    if (result && result.success) {
-      console.log(`✅ Successfully scraped ${name}`);
+    if (result.success) {
+      console.log(`✅ Scraped ${name} via ${result.engine}`);
       return {
         success: true,
         gel: result.gel,
@@ -94,14 +90,15 @@ export async function smartScrape(
         acrylic: result.acrylic,
         services: result.services,
         source: "scraped",
+        reason: result.engine,
       };
     }
 
-    console.log(`⚠️  Scraping failed for ${name}, fallback to estimation`);
+    console.log(`⚠️  Scraping failed for ${name} after ${result.engine}`);
     return {
       success: false,
       source: "estimated",
-      reason: "Scraping failed - content not extractable",
+      reason: result.engine === "puppeteer" ? "Browser fallback found no prices" : "Scraping failed - content not extractable",
     };
   } catch (error: any) {
     console.error(`❌ Scraping error for ${name}: ${error.message}`);
@@ -220,22 +217,23 @@ export async function batchSmartScrape(
   return results;
 }
 
-/**
- * Puppeteer hook (stub for future implementation)
- * This would run on a separate server, not on Vercel
- */
-export async function scrapWithPuppeteer(
-  url: string
-): Promise<ScraperResult> {
-  // Stub implementation
-  console.log(
-    `🎭 Puppeteer scraping not available (requires separate server)`
-  );
-
+export async function scrapWithPuppeteer(url: string): Promise<ScraperResult> {
+  if (process.env.VERCEL === "1") {
+    return {
+      success: false,
+      source: "skipped",
+      reason: "Browser scrape runs on the scrape worker, not in the web process",
+    };
+  }
+  const result = await scrapeWithFallback(url, url);
   return {
-    success: false,
-    source: "estimated",
-    reason: "Puppeteer not available on serverless",
+    success: result.success,
+    gel: result.gel,
+    pedicure: result.pedicure,
+    acrylic: result.acrylic,
+    services: result.services,
+    source: result.success ? "scraped" : "estimated",
+    reason: result.engine,
   };
 }
 

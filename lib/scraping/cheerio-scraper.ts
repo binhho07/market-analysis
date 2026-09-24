@@ -200,7 +200,7 @@ function categorizeService(name: string): string | null {
 /**
  * Parse services from HTML
  */
-function parseServices(html: string): ScrapedService[] {
+export function parseServices(html: string): ScrapedService[] {
   const $ = cheerio.load(html);
   const services: ScrapedService[] = [];
   
@@ -373,6 +373,48 @@ export async function scrapeWithCheerio(
     console.error(`   ❌ Error: ${error.message}`);
   }
 
+  return result;
+}
+
+export function htmlNeedsBrowser(html: string): boolean {
+  const withoutScripts = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
+  const visible = withoutScripts.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (visible.length < 280) return true;
+  if (parseServices(html).length > 0) return false;
+  return /enable javascript|id=["']root["']|id=["']__next["']|app-root/i.test(html);
+}
+
+export function menuFromHtml(html: string, source: string): ScrapeResult {
+  const result: ScrapeResult = {
+    success: false,
+    services: [],
+    source,
+    confidence: 0,
+  };
+  const services = parseServices(html);
+  if (!services.length) return result;
+
+  result.services = services;
+  result.success = true;
+  const gelPrices: number[] = [];
+  const pediPrices: number[] = [];
+  const acrylicPrices: number[] = [];
+  services.forEach((service) => {
+    const category = categorizeService(service.name);
+    if (category === "gel") gelPrices.push(service.price);
+    if (category === "pedicure") pediPrices.push(service.price);
+    if (category === "acrylic") acrylicPrices.push(service.price);
+  });
+  const median = (values: number[]) => {
+    if (!values.length) return undefined;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  };
+  result.gel = median(gelPrices);
+  result.pedicure = median(pediPrices);
+  result.acrylic = median(acrylicPrices);
+  result.confidence =
+    ((result.gel ? 1 : 0) + (result.pedicure ? 1 : 0) + (result.acrylic ? 1 : 0)) / 3;
   return result;
 }
 

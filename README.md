@@ -36,6 +36,16 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Scraper benchmark
+
+Cheerio runs first. If the page is JS-only or extraction fails, the scrape worker renders it with Puppeteer (`npm run scrape-worker`). On Vercel the web process does not launch a browser.
+
+```bash
+npm run benchmark:scraper
+```
+
+Latest labeled run (`benchmarks/latest.json`, 28 menu pages and 12 discovery cases): discovery accuracy 1.00, price precision 1.00, price recall 1.00, scrape success 1.00, latency p50 0.3 ms, p95 323 ms. The p95 is the browser fallback. Re-run the command after extractor changes; do not quote these numbers once the dataset or code has moved.
+
 ## Analysis pipeline
 
 `POST /api/analyze` creates an `AnalysisJob` and returns immediately (`202`). A worker then runs:

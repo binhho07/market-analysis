@@ -30,6 +30,7 @@ const BLOCKED_DOMAINS = [
   "google.com/maps",
   "yelp.com",
   "yellowpages.com",
+  "groupon.com",
   "whitepages.com",
   "superpages.com",
   "local.com",
